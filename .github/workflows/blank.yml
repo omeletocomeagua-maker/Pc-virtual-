@@ -9,42 +9,19 @@ jobs:
     timeout-minutes: 350
 
     steps:
-
       - name: Conectar ao Tailscale
         uses: tailscale/github-action@v4
         with:
           authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
 
-      - name: Informações do PC
+      - name: Configurar senha do Windows
         shell: powershell
+        env:
+          RDP_PASSWORD: ${{ secrets.RDP_PASSWORD }}
         run: |
-          Write-Host "===== PC VIRTUAL ====="
-
-          Get-ComputerInfo |
-            Select-Object WindowsProductName, WindowsVersion, OsArchitecture
-
-          Write-Host ""
-          Write-Host "===== CPU ====="
-
-          Get-CimInstance Win32_Processor |
-            Select-Object Name, NumberOfCores, NumberOfLogicalProcessors
-
-          Write-Host ""
-          Write-Host "===== RAM ====="
-
-          Get-CimInstance Win32_ComputerSystem |
-            Select-Object @{
-              Name="RAM_GB"
-              Expression={[math]::Round($_.TotalPhysicalMemory / 1GB, 2)}
-            }
-
-          Write-Host ""
-          Write-Host "===== DISCO ====="
-
-          Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'" |
-            Select-Object DeviceID,
-              @{Name="Total_GB";Expression={[math]::Round($_.Size / 1GB, 2)}},
-              @{Name="Livre_GB";Expression={[math]::Round($_.FreeSpace / 1GB, 2)}}
+          $password = ConvertTo-SecureString $env:RDP_PASSWORD -AsPlainText -Force
+          Set-LocalUser -Name "runneradmin" -Password $password
+          Write-Host "Senha configurada."
 
       - name: Ativar RDP
         shell: powershell
@@ -54,8 +31,7 @@ jobs:
             -Name "fDenyTSConnections" `
             -Value 0
 
-          Enable-NetFirewallRule `
-            -DisplayGroup "Remote Desktop"
+          Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
 
           Set-Service -Name TermService -StartupType Automatic
           Start-Service -Name TermService
