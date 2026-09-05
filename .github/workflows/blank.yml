@@ -5,12 +5,12 @@ on:
 
 jobs:
   pc-virtual:
-    runs-on: [self-hosted, windows, x64, pc-150gb]
-
+    runs-on: windows-latest
     timeout-minutes: 350
 
     steps:
-      - name: Verificar PC
+
+      - name: Informações do PC
         shell: powershell
         run: |
           Write-Host "===== PC VIRTUAL ====="
@@ -52,12 +52,29 @@ jobs:
           Enable-NetFirewallRule `
             -DisplayGroup "Remote Desktop"
 
+          Set-Service -Name TermService -StartupType Automatic
+          Start-Service -Name TermService
+
           Write-Host "RDP ativado."
 
-      - name: Manter PC ligado
+      - name: Mostrar IP
         shell: powershell
         run: |
+          Write-Host "===== IP LOCAL ====="
+
+          Get-NetIPAddress -AddressFamily IPv4 |
+            Where-Object {
+              $_.IPAddress -notlike "127.*" -and
+              $_.IPAddress -notlike "169.254.*"
+            } |
+            Select-Object IPAddress
+
+      - name: Manter PC ativo
+        shell: powershell
+        run: |
+          Write-Host "PC virtual iniciado."
+
           while ($true) {
-            Write-Host "PC virtual ativo: $(Get-Date)"
+            Write-Host "PC ativo: $(Get-Date)"
             Start-Sleep -Seconds 60
-          }
+          }1
