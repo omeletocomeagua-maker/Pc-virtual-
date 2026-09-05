@@ -1,0 +1,63 @@
+name: PC Virtual Windows
+
+on:
+  workflow_dispatch:
+
+jobs:
+  pc-virtual:
+    runs-on: [self-hosted, windows, x64, pc-150gb]
+
+    timeout-minutes: 350
+
+    steps:
+      - name: Verificar PC
+        shell: powershell
+        run: |
+          Write-Host "===== PC VIRTUAL ====="
+
+          Get-ComputerInfo |
+            Select-Object WindowsProductName, WindowsVersion, OsArchitecture
+
+          Write-Host ""
+          Write-Host "===== CPU ====="
+
+          Get-CimInstance Win32_Processor |
+            Select-Object Name, NumberOfCores, NumberOfLogicalProcessors
+
+          Write-Host ""
+          Write-Host "===== RAM ====="
+
+          Get-CimInstance Win32_ComputerSystem |
+            Select-Object @{
+              Name="RAM_GB"
+              Expression={[math]::Round($_.TotalPhysicalMemory / 1GB, 2)}
+            }
+
+          Write-Host ""
+          Write-Host "===== DISCO ====="
+
+          Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'" |
+            Select-Object DeviceID,
+              @{Name="Total_GB";Expression={[math]::Round($_.Size / 1GB, 2)}},
+              @{Name="Livre_GB";Expression={[math]::Round($_.FreeSpace / 1GB, 2)}}
+
+      - name: Ativar RDP
+        shell: powershell
+        run: |
+          Set-ItemProperty `
+            -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server" `
+            -Name "fDenyTSConnections" `
+            -Value 0
+
+          Enable-NetFirewallRule `
+            -DisplayGroup "Remote Desktop"
+
+          Write-Host "RDP ativado."
+
+      - name: Manter PC ligado
+        shell: powershell
+        run: |
+          while ($true) {
+            Write-Host "PC virtual ativo: $(Get-Date)"
+            Start-Sleep -Seconds 60
+          }
