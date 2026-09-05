@@ -10,6 +10,11 @@ jobs:
 
     steps:
 
+      - name: Conectar ao Tailscale
+        uses: tailscale/github-action@v4
+        with:
+          authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
+
       - name: Informações do PC
         shell: powershell
         run: |
@@ -57,17 +62,22 @@ jobs:
 
           Write-Host "RDP ativado."
 
-      - name: Mostrar IP
+      - name: Mostrar IP do Tailscale
         shell: powershell
         run: |
-          Write-Host "===== IP LOCAL ====="
+          Start-Sleep -Seconds 10
 
-          Get-NetIPAddress -AddressFamily IPv4 |
-            Where-Object {
-              $_.IPAddress -notlike "127.*" -and
-              $_.IPAddress -notlike "169.254.*"
-            } |
-            Select-Object IPAddress
+          Write-Host ""
+          Write-Host "=============================="
+          Write-Host " IP DO PC VIRTUAL"
+          Write-Host "=============================="
+
+          tailscale ip -4
+
+          Write-Host ""
+          Write-Host "=============================="
+          Write-Host " PC PRONTO"
+          Write-Host "=============================="
 
       - name: Manter PC ativo
         shell: powershell
@@ -77,4 +87,4 @@ jobs:
           while ($true) {
             Write-Host "PC ativo: $(Get-Date)"
             Start-Sleep -Seconds 60
-          }1
+          }
