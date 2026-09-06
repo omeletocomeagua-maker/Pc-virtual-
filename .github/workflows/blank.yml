@@ -5,40 +5,106 @@ on:
 
 jobs:
   pc-virtual:
-    runs-on: windows-latest
+    runs-on: windows-2025
     timeout-minutes: 350
 
     steps:
+
       - name: Conectar ao Tailscale
         uses: tailscale/github-action@v4
         with:
           authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
 
-      - name: Configurar senha do Windows
+      - name: Configurar RDP
         shell: powershell
         env:
           RDP_PASSWORD: ${{ secrets.RDP_PASSWORD }}
         run: |
-          $password = ConvertTo-SecureString $env:RDP_PASSWORD -AsPlainText -Force
-          Set-LocalUser -Name "runneradmin" -Password $password
-          Write-Host "Senha configurada."
+          $password = ConvertTo-SecureString `
+            $env:RDP_PASSWORD `
+            -AsPlainText `
+            -Force
 
-      - name: Ativar RDP
-        shell: powershell
-        run: |
+          Set-LocalUser `
+            -Name "runneradmin" `
+            -Password $password
+
           Set-ItemProperty `
             -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server" `
             -Name "fDenyTSConnections" `
             -Value 0
 
-          Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+          Enable-NetFirewallRule `
+            -DisplayGroup "Remote Desktop"
 
-          Set-Service -Name TermService -StartupType Automatic
-          Start-Service -Name TermService
+          Set-Service `
+            -Name TermService `
+            -StartupType Automatic
+
+          Start-Service TermService
 
           Write-Host "RDP ativado."
 
-      - name: Mostrar IP do Tailscale
+      - name: Otimizar RDP
+        shell: powershell
+        run: |
+          # Reduz efeitos visuais para melhorar a resposta pelo RDP
+          Set-ItemProperty `
+            -Path "HKCU:\Control Panel\Desktop" `
+            -Name "MenuShowDelay" `
+            -Value "0"
+
+          Set-ItemProperty `
+            -Path "HKCU:\Control Panel\Desktop" `
+            -Name "DragFullWindows" `
+            -Value "0"
+
+          Write-Host "RDP otimizado."
+
+      - name: Informações do PC
+        shell: powershell
+        run: |
+          Write-Host "=============================="
+          Write-Host " PC VIRTUAL"
+          Write-Host "=============================="
+
+          Write-Host ""
+          Write-Host "CPU:"
+          Get-CimInstance Win32_Processor |
+            Select-Object Name, NumberOfCores, NumberOfLogicalProcessors
+
+          Write-Host ""
+          Write-Host "RAM:"
+          Get-CimInstance Win32_ComputerSystem |
+            Select-Object @{
+              Name="RAM_GB"
+              Expression={
+                [math]::Round(
+                  $_.TotalPhysicalMemory / 1GB,
+                  2
+                )
+              }
+            }
+
+          Write-Host ""
+          Write-Host "DISCO:"
+          Get-CimInstance Win32_LogicalDisk `
+            -Filter "DeviceID='C:'" |
+            Select-Object DeviceID,
+              @{
+                Name="Total_GB"
+                Expression={
+                  [math]::Round($_.Size / 1GB, 2)
+                }
+              },
+              @{
+                Name="Livre_GB"
+                Expression={
+                  [math]::Round($_.FreeSpace / 1GB, 2)
+                }
+              }
+
+      - name: Mostrar IP
         shell: powershell
         run: |
           Start-Sleep -Seconds 10
@@ -55,10 +121,10 @@ jobs:
           Write-Host " PC PRONTO"
           Write-Host "=============================="
 
-      - name: Manter PC ativo
+      - name: Manter PC ligado
         shell: powershell
         run: |
-          Write-Host "PC virtual iniciado."
+          Write-Host "PC VIRTUAL ONLINE."
 
           while ($true) {
             Write-Host "PC ativo: $(Get-Date)"
